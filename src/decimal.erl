@@ -9,6 +9,8 @@
 
 
 -include("../include/decimal.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
 -compile({no_auto_import,[max/2]}).
 -export([from_float/2,
 	 from_int/1,
@@ -25,7 +27,10 @@
 	 abs/1,
 	 divide/2,
 	 format/1,
-	 format/2]).
+	 format/2,
+	 equal/2,
+	 less_than/2,
+	 greater_than/2]).
 %%==========================================================================
 -type decimal() :: #decimal{}.
 -type scale()   :: pos_integer().
@@ -52,6 +57,11 @@ from_minor_int(MinorInt, Scale) when is_integer(MinorInt),
 to_minor_int(Fp) when is_record(Fp,decimal) ->
     Shift = pow(10,Fp#decimal.scale),
     Fp#decimal.value * Shift + Fp#decimal.fraction.
+
+
+to_minor_int(Fp,Scale) when is_record(Fp,decimal), is_integer(Scale) ->
+    AdjustedDecimal = adjust(Fp,Scale),
+    to_minor_int(AdjustedDecimal).
 
 %%==========================================================================
 to_fixed(Int)   when is_integer(Int)          -> from_int(Int);
@@ -201,3 +211,119 @@ pow(Base, N) when N > 0 ->
 max(A,B) when A >= B -> A;
 max(A,B) when A =< B -> B.
 %%==========================================================================
+
+
+equal(Decimal1 = #decimal{unit=Unit,
+			  scale = DScale1},
+      Decimal2 = #decimal{unit=Unit,
+			  scale = DScale2}) ->
+    %% Same units - can compare them
+    MaxScale = lists:max([DScale1,DScale2]),
+    D1 = to_minor_int(Decimal1,MaxScale),
+    D2 = to_minor_int(Decimal2,MaxScale),
+    D1 == D2;
+equal(Decimal1 = #decimal{unit=Unit1},Decimal2 = #decimal{unit=Unit2})  ->
+    %% Incompatible units --> can't be equal
+    false.
+
+    
+%%==========================================================================
+    
+equal_test_() ->
+  [
+   %% Defaults should be equal
+   ?_assertMatch(true,equal(#decimal{},#decimal{})),
+   %% Different units shouldn't match
+   ?_assertMatch(false,equal(#decimal{unit=kg},#decimal{unit=m})),
+   ?_assertMatch(true,equal(#decimal{unit=kg},
+			    #decimal{unit=kg})),
+   %% Difference in fractions only
+   ?_assertMatch(false,equal(#decimal{unit=kg,scale=2,value=1,fraction=1},
+			     #decimal{unit=kg,scale=2,value=1,fraction=2})),
+   %% Difference in value
+   ?_assertMatch(false,equal(#decimal{unit=kg,scale=2,value=1,fraction=1},
+			     #decimal{unit=kg,scale=2,value=2,fraction=1})),
+   
+   %% Fraction equals value
+   ?_assertMatch(true,equal(#decimal{unit=kg,scale=2,value=0,fraction=100},
+			     #decimal{unit=kg,scale=2,value=1,fraction=00})),
+   %% Different scale, equal value
+   ?_assertMatch(true,equal(#decimal{unit=kg,scale=1,value=1,fraction=1},
+			     #decimal{unit=kg,scale=2,value=1,fraction=10}))
+   
+  ].
+      
+
+%%==========================================================================
+
+less_than(Decimal1 = #decimal{unit=Unit,
+			      scale = DScale1},
+	  Decimal2 = #decimal{unit=Unit,
+			      scale = DScale2}) ->
+    %% Same units - can compare them
+    MaxScale = lists:max([DScale1,DScale2]),
+    D1 = to_minor_int(Decimal1,MaxScale),
+    D2 = to_minor_int(Decimal2,MaxScale),
+    D1 < D2;
+less_than(Decimal1 = #decimal{unit=Unit1},Decimal2 = #decimal{unit=Unit2})  ->
+    %% Incompatible units --> can't be compared
+    throw(incompatible_units).
+
+
+%%==========================================================================
+
+less_than_test_() ->
+  [
+   %% Defaults should be equal
+   ?_assertMatch(false,less_than(#decimal{},#decimal{})),
+   %% Equal amounts
+   ?_assertMatch(false,less_than(#decimal{unit=kg,scale=2,value=0,fraction=100},
+				 #decimal{unit=kg,scale=2,value=1,fraction=00})),
+   %% Lesser fractions
+   ?_assertMatch(true,less_than(#decimal{unit=kg,scale=2,value=0,fraction=1},
+				#decimal{unit=kg,scale=2,value=0,fraction=2})),
+   %% Lesser values
+   ?_assertMatch(true,less_than(#decimal{unit=kg,scale=2,value=1,fraction=1},
+				#decimal{unit=kg,scale=2,value=2,fraction=1})),
+   %% Inverted values
+   ?_assertMatch(false,less_than(#decimal{unit=kg,scale=2,value=2,fraction=1},
+				 #decimal{unit=kg,scale=2,value=1,fraction=1}))
+   ].
+   
+
+
+%%==========================================================================
+
+greater_than(Decimal1 = #decimal{unit=Unit,
+				 scale = DScale1},
+	     Decimal2 = #decimal{unit=Unit,
+				 scale = DScale2}) ->
+    %% Same units - can compare them
+    MaxScale = lists:max([DScale1,DScale2]),
+    D1 = to_minor_int(Decimal1,MaxScale),
+    D2 = to_minor_int(Decimal2,MaxScale),
+    D1 > D2;
+greater_than(Decimal1 = #decimal{unit=Unit1},Decimal2 = #decimal{unit=Unit2})  ->
+    %% Incompatible units --> can't be compared
+    throw(incompatible_units).
+
+
+%%==========================================================================
+
+greater_than_test_() ->
+  [
+   %% Defaults should be equal
+   ?_assertMatch(false,greater_than(#decimal{},#decimal{})),
+   %% Equal amounts
+   ?_assertMatch(false,greater_than(#decimal{unit=kg,scale=2,value=0,fraction=100},
+				    #decimal{unit=kg,scale=2,value=1,fraction=00})),
+   %% Lesser fractions
+   ?_assertMatch(false,greater_than(#decimal{unit=kg,scale=2,value=0,fraction=1},
+				    #decimal{unit=kg,scale=2,value=0,fraction=2})),
+   %% Lesser values
+   ?_assertMatch(false,greater_than(#decimal{unit=kg,scale=2,value=1,fraction=1},
+				    #decimal{unit=kg,scale=2,value=2,fraction=1})),
+   %% Inverted values
+   ?_assertMatch(true,greater_than(#decimal{unit=kg,scale=2,value=2,fraction=1},
+				   #decimal{unit=kg,scale=2,value=1,fraction=1}))
+   ].
