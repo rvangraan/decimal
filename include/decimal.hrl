@@ -1,4 +1,4 @@
--record(fp,{decimals  = 0,
-	    magnitude = 0,
-	    fraction  = 0}).
+-record(decimal,{value = 0,
+		 fraction = 0,
+		 scale = 0}).
 
