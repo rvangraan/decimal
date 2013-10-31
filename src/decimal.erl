@@ -54,6 +54,15 @@ from_minor_int(MinorInt, Scale) when is_integer(MinorInt),
     Shift = pow(10,Scale),
     #decimal{scale = Scale, value = (MinorInt div Shift), fraction = (MinorInt rem Shift)}.
 %%==========================================================================
+
+from_minor_int(Unit, MinorInt, Scale) when is_integer(MinorInt),
+                                           is_integer(Scale),
+                                           Scale >= 0 ->
+    Shift = pow(10,Scale),
+    #decimal{unit = Unit, scale = Scale, value = (MinorInt div Shift), fraction = (MinorInt rem Shift)}.
+
+
+%%==========================================================================
 to_minor_int(Fp) when is_record(Fp,decimal) ->
     Shift = pow(10,Fp#decimal.scale),
     Fp#decimal.value * Shift + Fp#decimal.fraction.
@@ -144,27 +153,31 @@ divide(Fp,Float)  when is_record(Fp,decimal),
 
 
 -spec add(num(),num()) -> decimal().
-add(FP1,FP2) when is_record(FP1,decimal),
-		  is_record(FP2,decimal) ->
+add(FP1 = #decimal{unit=Unit},FP2 = #decimal{unit=Unit})  ->
     D1  = FP1#decimal.scale,
     D2  = FP2#decimal.scale,
     D   = max(D1,D2),
     F1I = to_minor_int(adjust(FP1,D)),
     F2I = to_minor_int(adjust(FP2,D)),
-    from_minor_int(F1I+F2I,D);
+    from_minor_int(Unit, F1I+F2I,D);
+add(FP1 = #decimal{unit=UnitA},FP2 = #decimal{unit=UnitB})  ->
+    %% incompatible units
+    exit(badarg);
 add(V1,V2) ->
     add(to_fixed(V1),to_fixed(V2)).
 
 %%==========================================================================
 -spec sub(num(),num()) -> decimal().
-sub(FP1,FP2) when is_record(FP1,decimal),
-		  is_record(FP2,decimal) ->
+sub(FP1 = #decimal{unit=Unit},FP2 = #decimal{unit=Unit})  ->
     D1  = FP1#decimal.scale,
     D2  = FP2#decimal.scale,
     D   = max(D1,D2),
     F1I = to_minor_int(adjust(FP1,D)),
     F2I = to_minor_int(adjust(FP2,D)),
-    from_minor_int(F1I-F2I,D);
+    from_minor_int(Unit, F1I-F2I,D);
+sub(FP1 = #decimal{unit=UnitA},FP2 = #decimal{unit=UnitB})  ->
+    %% incompatible units
+    exit(badarg);
 sub(V1,V2) ->
     sub(to_fixed(V1),to_fixed(V2)).
 
