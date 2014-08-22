@@ -14,6 +14,7 @@
 -compile({no_auto_import,[max/2]}).
 -export([from_float/2,
 	 from_int/1,
+	 from_int/2,
 	 from_minor_int/2,
 	 to_minor_int/1,
 	 to_fixed/1,
@@ -44,8 +45,12 @@ from_float(Float,Scale) when is_float(Float) ->
 %%==========================================================================
 -spec from_int(integer()) -> decimal().
 from_int(Int) when is_integer(Int) ->
-    #decimal{scale  = 0,
+    from_int(Int,0).
+
+from_int(Int,Scale) when is_integer(Int), is_integer(Scale) ->
+    #decimal{scale  = Scale,
 	     value = Int}.
+
 
 %%==========================================================================
 from_minor_int(MinorInt, Scale) when is_integer(MinorInt),
